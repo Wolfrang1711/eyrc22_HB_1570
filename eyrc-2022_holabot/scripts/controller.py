@@ -37,6 +37,16 @@ class controller:
 		self.hola_theta = 0.0
 		self.index = 0
 
+		# Initialising variables that may be needed for the control loop for defining desired goal-pose and also Kp values for the P Controller
+		dist_thresh = 0.05
+		angle_thresh = math.pi/180
+		kp_l = 0.8
+		kp_a = 4.0
+		x =0
+		y=0
+		error_th = 0
+		error_d = 0
+
 		# desired goal points defined
 		self.x_goals = []
 		self.y_goals = []
@@ -47,10 +57,6 @@ class controller:
 
 			while index < len(self.x_goals):
 
-				
-
-				
-				
 				# Finally implementing a P controller to react to the error with velocities in x, y and theta
 				prop_x = x
 				prop_y = y
@@ -68,10 +74,10 @@ class controller:
 				if(error_d < dist_thresh and abs(error_th) < angle_thresh):
 					
 					# Stopping
-					vel.linear.x = 0.0
-					vel.linear.y = 0.0
-					vel.angular.z = 0.0
-					pub.publish(vel)
+					self.vel.linear.x = 0.0
+					self.vel.linear.y = 0.0
+					self.vel.angular.z = 0.0
+					self.pub.publish(self.vel)
 
 					# Stopping for 1 sec
 					rospy.sleep(1)
@@ -81,46 +87,37 @@ class controller:
 
 				else:
 
-					vel.linear.x =  vel_x 
-					vel.linear.y =  vel_y 
-					vel.angular.z = vel_z
-					pub.publish(vel)
+					self.vel.linear.x =  vel_x 
+					self.vel.linear.y =  vel_y 
+					self.vel.angular.z = vel_z
+					self.pub.publish(self.vel)
 				
 			rate.sleep()
 
-`
-		
-
-
-
-
-
-def odometryCb(msg):
-	global hola_x, hola_y, hola_theta
+def odometryCb(self, msg):
 
 	# code to take the msg and update the three variables
-	hola_x = msg.pose.pose.position.x
-	hola_y = msg.pose.pose.position.y
+	self.hola_x = msg.pose.pose.position.x
+	self.hola_y = msg.pose.pose.position.y
 	rot_q = msg.pose.pose.orientation
 
 	_, _, hola_theta = euler_from_quaternion([rot_q.x, rot_q.y, rot_q.z, rot_q.w])
 	
-def task1_goals_Cb(msg):
-	global x_goals, y_goals, theta_goals
+def task1_goals_Cb(self, msg):
 
-	x_goals.clear()
-	y_goals.clear()
-	theta_goals.clear()
+	self.x_goals.clear()
+	self.y_goals.clear()
+	self.theta_goals.clear()
 
 	for waypoint_pose in msg.poses:
 
-		x_goals.append(waypoint_pose.position.x)
-		y_goals.append(waypoint_pose.position.y)
+		self.x_goals.append(waypoint_pose.position.x)
+		self.y_goals.append(waypoint_pose.position.y)
 
 		orientation_q = waypoint_pose.orientation
 		orientation_list = [orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w]
 		theta_goal = euler_from_quaternion (orientation_list)[2]
-		theta_goals.append(theta_goal)
+		self.theta_goals.append(theta_goal)
 
 def global_error(self):
 
@@ -130,8 +127,6 @@ def global_error(self):
 	self.error_th = self.theta_goals[self.index] - self.hola_theta
 	self.error_d = np.linalg.norm(np.array((self.error_x, self.error_y)) - np.array((0,0)))
 
-	# self.error_d = math.sqrt((pow(error_x,2) + pow(error_y,2)))
-
 def body_error(self):
 
 	# Calculating error in body frame		
@@ -139,25 +134,6 @@ def body_error(self):
 	self.shifted_y = self.y_goals[self.index] - self.hola_y
 	self.x = self.shifted_x * math.cos(self.hola_theta) + self.shifted_y * math.sin(self.hola_theta)
 	self.y = - self.shifted_x * math.sin(self.hola_theta) + self.shifted_y * math.cos(self.hola_theta)
-
-
-def main():
-	global hola_x, hola_y, hola_theta, x_goals, y_goals, theta_goals
-
-	
-
-	
-
-	
-	
-	# For maintaining control loop rate.
-	rate = rospy.Rate(100)
-
-	# Initialising variables that may be needed for the control loop for defining desired goal-pose and also Kp values for the P Controller
-	dist_thresh = 0.05
-	angle_thresh = math.pi/180
-	kp_l = 0.8
-	kp_a = 4.0
 
 	
 if __name__ == "__main__":
