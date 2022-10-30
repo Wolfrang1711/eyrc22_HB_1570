@@ -63,18 +63,7 @@ class controller:
 				self.global_error()
 				self.body_error()
 
-				# Finally implementing a P controller to react to the error with velocities in self.x, self.y and theta
-				prop_x = self.x
-				prop_y = self.y
-				prop_th = self.error_th
-				balance_x = (self.kp_linear*prop_x) 
-				balance_y = (self.kp_linear*prop_y)
-				balance_th = (self.kp_angular*prop_th)
-
-				# Updating balanced speed
-				vel_x = balance_x
-				vel_y = balance_y
-				vel_z = balance_th
+				self.PID()
 				
 				# Moving and Orienting till goal is reached
 				if(self.error_d < self.dist_thresh and abs(self.error_th) < self.angle_thresh):
@@ -93,9 +82,9 @@ class controller:
 
 				else:
 
-					self.vel.linear.x =  vel_x 
-					self.vel.linear.y =  vel_y 
-					self.vel.angular.z = vel_z
+					self.vel.linear.x =  self.vel_x 
+					self.vel.linear.y =  self.vel_y 
+					self.vel.angular.z = self.vel_z
 					self.publisher.publish(self.vel)
 				
 			rate.sleep()
@@ -132,7 +121,6 @@ class controller:
 		self.error_y = self.y_goals[self.index] - self.hola_y
 		self.error_th = self.theta_goals[self.index] - self.hola_theta
 		self.error_d = np.linalg.norm(np.array((self.error_x, self.error_y)) - np.array((0,0)))
-		# self.error_d = sqrt(pow(self.error_x,2)+pow(self.error_y,2))
 
 	def body_error(self):
 
@@ -141,6 +129,21 @@ class controller:
 		self.shifted_y = self.y_goals[self.index] - self.hola_y
 		self.x = self.shifted_x * math.cos(self.hola_theta) + self.shifted_y * math.sin(self.hola_theta)
 		self.y = -self.shifted_x * math.sin(self.hola_theta) + self.shifted_y * math.cos(self.hola_theta)
+
+	def PID(self):
+
+		# Finally implementing a P controller to react to the error with velocities in self.x, self.y and theta
+		prop_x = self.x
+		prop_y = self.y
+		prop_th = self.error_th
+		balance_x = (self.kp_linear*prop_x) 
+		balance_y = (self.kp_linear*prop_y)
+		balance_th = (self.kp_angular*prop_th)
+
+		# Updating balanced speed
+		self.vel_x = balance_x
+		self.vel_y = balance_y
+		self.vel_z = balance_th	
 	
 if __name__ == "__main__":
 
