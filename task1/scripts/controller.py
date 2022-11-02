@@ -132,7 +132,7 @@ class controller:
 		self.error_y = self.y_goals[self.index] - self.hola_y
 		self.error_th = self.theta_goals[self.index] - self.hola_theta
 		self.error_d = np.linalg.norm(np.array((self.error_x, self.error_y)) - np.array((0,0)))
-		# self.error_d = sqrt(pow(self.error_x,2)+pow(self.error_y,2))
+
 
 	def body_error(self):
 

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 '''
 *****************************************************************************************
@@ -17,56 +17,135 @@
 *****************************************************************************************
 '''
 
-# Team ID:		[ Team-ID ]
-# Author List:		[ Names of team members worked on this file separated by Comma: Name1, Name2, ... ]
+# Team ID:		HB-1570
+# Author List:	Pratik, Romala
 # Filename:		feedback.py
-# Functions:
-#			[ Comma separated list of functions in this file ]
-# Nodes:		Add your publishing and subscribing node
+# Functions:    __init__(), callback(), aruco_detection() 
+#			
+# Nodes:		Publishing node: detected_aruco
+# 				Subscribing node: overhead_cam/image_raw
 
 
 ######################## IMPORT MODULES ##########################
-
-import numpy				# If you find it required
+		
 import rospy 				
-from sensor_msgs.msg import Image 	# Image is the message type for images in ROS
-from cv_bridge import CvBridge	# Package to convert between ROS and OpenCV Images
-import cv2				# OpenCV Library
-import math				# If you find it required
-from geometry_msgs.msg import Pose2D	# Required to publish ARUCO's detected position & orientation
+from sensor_msgs.msg import Image 	      # Image is the message type for images in ROS
+from cv_bridge import CvBridge	          # Package to convert between ROS and OpenCV Images
+import cv2				                  # OpenCV Library
+import math			
+from geometry_msgs.msg import Pose2D	  # Required to publish ARUCO's detected position & orientation
 
-############################ GLOBALS #############################
 
-aruco_publisher = rospy.Publisher('detected_aruco', Pose2D)
-aruco_msg = Pose2D()
+class Feedback:
 
-##################### FUNCTION DEFINITIONS #######################
+	def __init__(self):
 
-# NOTE :  You may define multiple helper functions here and use in your code
+		# initialising node named "aruco_feedback_node"
+		rospy.init_node('aruco_feedback_node')  
 
-def callback(data):
-	# Bridge is Used to Convert ROS Image message to OpenCV image
-	br = CvBridge()
-	rospy.loginfo("receiving camera frame")
-	get_frame = br.imgmsg_to_cv2(data, "mono8")		# Receiving raw image in a "grayscale" format
-	current_frame = cv2.resize(get_frame, (500, 500), interpolation = cv2.INTER_LINEAR)
+		# initialising publisher and subscriber of detected_aruco and overhead_cam/image_raw respectively
+		self.aruco_publisher = rospy.Publisher('detected_aruco', Pose2D, queue_size=10)  
+		rospy.Subscriber('overhead_cam/image_raw', Image, self.callback)
 
-	############ ADD YOUR CODE HERE ############
+		# Declaring a Pose2D message
+		self.aruco_msg = Pose2D()
 
-	# INSTRUCTIONS & HELP : 
-	#	-> Use OpenCV to find ARUCO MARKER from the IMAGE
-	#	-> You are allowed to use any other library for ARUCO detection, 
-	#        but the code should be strictly written by your team and
-	#	   your code should take image & publish coordinates on the topics as specified only.  
-	#	-> Use basic high-school geometry of "TRAPEZOIDAL SHAPES" to find accurate marker coordinates & orientation :)
-	#	-> Observe the accuracy of aruco detection & handle every possible corner cases to get maximum scores !
+		# Declaring CvBridge to convert between ROS and OpenCV image
+		self.br = CvBridge()
 
-	############################################
-      
-def main():
-	rospy.init_node('aruco_feedback_node')  
-	rospy.Subscriber('overhead_cam/image_raw', Image, callback)
-	rospy.spin()
-  
-if __name__ == '__main__':
-  main()
+
+		# Initialising the required variables
+		self.cX = 0.0
+		self.cY = 0.0
+		self.angle = 0.0
+		self.current_frame = None
+
+
+		# defining aruco code dictionary and parameters
+		self.arucoDict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_4X4_50)
+		self.arucoParams = cv2.aruco.DetectorParameters_create()
+
+		# For maintaining control loop rate.
+		self.rate = rospy.Rate(10)
+
+
+		# control loop
+		while not rospy.is_shutdown():
+
+			if self.current_frame is None: 
+				continue
+
+			self.aruco_detection()
+
+			# updating x,y,theta values
+			self.aruco_msg.x = self.cX
+			self.aruco_msg.y = self.cY
+			self.aruco_msg.theta = self.angle
+
+			#display the position of the bot
+			print("position of the bot initially is", (self.aruco_msg.x, self.aruco_msg.y, self.aruco_msg.theta))
+		
+
+			# to display the image frame
+			cv2.imshow("frame", self.current_frame)
+			if cv2.waitKey(30) & 0xFF == ord('q'):
+					rospy.spin()
+
+			#publishing the node Pose2D
+			self.aruco_publisher.publish(self.aruco_msg)
+			self.rate.sleep() 		
+
+
+	def callback(self,data):
+		# Bridge to Convert ROS Image message to OpenCV current_frame
+		
+		rospy.loginfo("receiving camera frame")
+
+		self.get_frame = self.br.imgmsg_to_cv2(data, desired_encoding="mono8")
+		self.current_frame = cv2.resize(self.get_frame, (500, 500), interpolation = cv2.INTER_LINEAR)
+
+
+	def aruco_detection(self):
+
+		print("detecting arucomark..")
+
+		#detecting arucomark
+		corners, ids, _ = cv2.aruco.detectMarkers(self.current_frame, self.arucoDict, parameters=self.arucoParams)
+
+		if len(corners) > 0:
+
+		# flatten the Aruco IDs list
+			ids = ids.flatten()
+
+			# loop over the detected Aruco corners
+			for (markerCorner, _) in zip(corners, ids):
+
+				# extracting the marker corners 
+				self.corners = markerCorner.reshape((4, 2))
+				(topLeft, topRight, bottomRight, bottomLeft) = self.corners
+
+				# converting each of the (x, y)-coordinate pairs to integers
+				topRight = (int(topRight[0]), int(topRight[1]))
+				bottomRight = (int(bottomRight[0]), int(bottomRight[1]))
+				bottomLeft = (int(bottomLeft[0]), int(bottomLeft[1]))
+				topLeft = (int(topLeft[0]), int(topLeft[1]))			
+
+				# computing the center (x, y)-coordinates of the Aruco marker
+				self.cX = int((topLeft[0] + bottomRight[0]) / 2.0)
+				self.cY = int((topLeft[1] + bottomRight[1]) / 2.0)
+
+				# for calculating the orientation of aruco marker
+				(midx, midy) = int((topRight[0] + topLeft[0]) / 2), int((topRight[1] + topLeft[1]) / 2)
+				robo_or = math.atan2(midy-self.cY, midx-self.cX ) 						
+				self.angle = robo_or 
+		
+	
+if __name__=='__main__':	
+	aruco = Feedback()
+	try:
+		if not rospy.is_shutdown():
+			Feedback()
+	except rospy.ROSInterruptException as e:
+			print(e)
+
+	
