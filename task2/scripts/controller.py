@@ -17,41 +17,48 @@
 *****************************************************************************************
 '''
 
-# Team ID:		[ Team-ID ]
-# Author List:		[ Names of team members worked on this file separated by Comma: Name1, Name2, ... ]
-# Filename:		feedback.py
-# Functions:
-#			[ Comma separated list of functions in this file ]
-# Nodes:		Add your publishing and subscribing node
-
+# Team ID:		[ eYRC#HB#1570 ]
+# Author List:	[ Pratik, Romala ]
+# Filename:		controller.py
+# Functions:	task2_goals_Cb(), aruco_feedback_Cb(), global_error(), body_error(), PID(), inverse_kinematics()
+# Nodes:		Publishing nodes: /right_wheel_force, /front_wheel_force, /left_wheel_force
+#    			Subscribing nodes: /detected_aruco, /task2_goals
 
 ################### IMPORT MODULES #######################
 
 import rospy
-import signal		# To handle Signals by OS/user
-import sys			# To handle Signals by OS/user
 
-from geometry_msgs.msg import Wrench		# Message type used for publishing force vectors
+from geometry_msgs.msg import Wrench     	# Message type used for publishing force vectors
 from geometry_msgs.msg import PoseArray		# Message type used for receiving goals
 from geometry_msgs.msg import Pose2D		# Message type used for receiving feedback
 
-import time
-import math		# If you find it useful
+import math		                            # If you find it useful
 import numpy as np
 
 from tf.transformations import euler_from_quaternion	# Convert angles
 
-################## GLOBAL VARIABLES ######################
 class controller:
 
 	def __init__(self):
-		
-		self.PI = 3.14
 
+		# initialising node named "controller_node"
+		rospy.init_node('controller_node')
+
+		# initialising publisher of /right_wheel_force, /front_wheel_force, /left_wheel_force 
+		self.right_wheel_pub = rospy.Publisher('/right_wheel_force', Wrench, queue_size=10)
+		self.front_wheel_pub = rospy.Publisher('/front_wheel_force', Wrench, queue_size=10)
+		self.left_wheel_pub = rospy.Publisher('/left_wheel_force', Wrench, queue_size=10)
+
+		# initialising subscriber of /detected_aruco and /task2_goals
+		rospy.Subscriber('detected_aruco',Pose2D,self.aruco_feedback_Cb)
+		rospy.Subscriber('task2_goals',PoseArray,self.task2_goals_Cb)
+		
+		# initialising goalpoints array
 		self.x_goals = []
 		self.y_goals = []
-		self.theta_goals = []
+		self.theta_goals = []                                                                                                                                                                                                                                                                                                            
 
+		# initialising required variables
 		self.hola_x = 0.0
 		self.hola_y = 0.0 
 		self.hola_theta = 0.0
@@ -59,85 +66,73 @@ class controller:
 		self.y = 0
 		self.error_th = 0
 		self.error_d = 0
+		self.index = 0
+
+		# declaring thresholds
+		self.dist_thresh = 0.05
+		self.angle_thresh = 5 * (math.pi/180)
 
 		# Initialising Kp values for the P Controller
-		self.kp_linear = 0.8
-		self.kp_angular = 4.0
+		self.kp_linear = 5.0
+		self.kp_angular = 35.0
 
-		self.right_wheel_pub = None
-		self.left_wheel_pub = None
-		self.front_wheel_pub = None
+		# declaring wrench message for 3 wheels 
+		self.vector_f = Wrench()
+		self.vector_r = Wrench()
+		self.vector_l = Wrench()
 
-		rospy.init_node('controller_node')
-
-		signal.signal(signal.SIGINT, self.signal_handler)
-
-		# NOTE: You are strictly NOT-ALLOWED to use "cmd_vel" or "odom" topics in this task
-		#	Use the below given topics to generate motion for the robot.
-		self.right_wheel_pub = rospy.Publisher('/right_wheel_force', Wrench, queue_size=10)
-		self.front_wheel_pub = rospy.Publisher('/front_wheel_force', Wrench, queue_size=10)
-		self.left_wheel_pub = rospy.Publisher('/left_wheel_force', Wrench, queue_size=10)
-
-		rospy.Subscriber('detected_aruco',Pose2D,self.aruco_feedback_Cb)
-		rospy.Subscriber('task2_goals',PoseArray,self.task2_goals_Cb)
-		
+		# For maintaining control loop rate.
 		rate = rospy.Rate(100)
 		
-
-		############ ADD YOUR CODE HERE ############
-
-		# INSTRUCTIONS & HELP : 
-		#	-> Make use of the logic you have developed in previous task to go-to-goal.
-		#	-> Extend your logic to handle the feedback that is in terms of pixels.
-		#	-> Tune your controller accordingly.
-		# 	-> In this task you have to further implement (Inverse Kinematics!)
-		#      find three omni-wheel velocities (v1, v2, v3) = left/right/center_wheel_force (assumption to simplify)
-		#      given velocity of the chassis (Vx, Vy, W)
-		#	   
-
-			
+		# control loop
 		while not rospy.is_shutdown():
-			
-			# Calculate Error from feedback
-			self.global_error()
 
-			# Change the frame by using Rotation Matrix (If you find it required)
-			self.body_error()
+			while self.index < len(self.theta_goals):
 
-			# Calculate the required velocity of bot for the next iteration(s)
-			self.PID()
-			
-			# Find the required force vectors for individual wheels from it.(Inverse Kinematics)
+				# Calculating Global Error from feedback
+				self.global_error()
 
-			# Apply appropriate force vectors
+				# Changing to robot frame by using Rotation Matrix 
+				self.body_error()
 
-			# Modify the condition to Switch to Next goal (given position in pixels instead of meters)
+				# Calculating the required velocity of bot 
+				self.PID()
+				
+				# Finding the required force vectors for individual wheels from it
+				self.inverse_kinematics()
+
+				# Moving and Orienting till goal is reached
+				if(self.error_d < self.dist_thresh and abs(self.error_th) < self.angle_thresh):
+					
+				# Applying appropriate force vectors
+
+					# Stopping
+					self.vector_r.force.x = 0.0
+					self.vector_f.force.x = 0.0
+					self.vector_l.force.x = 0.0
+
+					self.right_wheel_pub.publish(self.vector_r)
+					self.front_wheel_pub.publish(self.vector_f)
+					self.left_wheel_pub.publish(self.vector_l)
+					
+					# Stopping for 1 sec
+					rospy.sleep(1)
+
+					# Updating goals				
+					self.index += 1
+
+				else:
+
+					self.vector_r.force.x = self.vr
+					self.vector_f.force.x = self.vf
+					self.vector_l.force.x = self.vl
+
+					self.right_wheel_pub.publish(self.vector_r)
+					self.front_wheel_pub.publish(self.vector_f)
+					self.left_wheel_pub.publish(self.vector_l)
 
 			rate.sleep()
-
-		############################################
-
-
-	##################### FUNCTION DEFINITIONS #######################
-
-	# NOTE :  You may define multiple helper functions here and use in your code
-
-	def signal_handler(sig, frame):
 		
-		# NOTE: This function is called when a program is terminated by "Ctr+C" i.e. SIGINT signal 	
-		print('Clean-up !')
-		#cleanup()
-		sys.exit(0)
-
-	#def cleanup():
-		############ ADD YOUR CODE HERE ############
-
-		# INSTRUCTIONS & HELP : 
-		#	-> Not mandatory - but it is recommended to do some cleanup over here,
-		#	   to make sure that your logic and the robot model behaves predictably in the next run.
-
-		############################################
-
 	def task2_goals_Cb(self, msg):
 		
 		self.x_goals.clear()
@@ -154,18 +149,11 @@ class controller:
 			self.theta_goals.append(theta_goal)
 
 	def aruco_feedback_Cb(self, msg):
-		############ ADD YOUR CODE HERE ############
 
-		# code to take the msg and update the three variables
+		# taking the msg and updating the three variables
 		self.hola_x = msg.x
 		self.hola_y = msg.y
 		self.hola_theta = msg.theta
-
-		# INSTRUCTIONS & HELP : 
-		#	-> Receive & store the feedback / coordinates found by aruco detection logic.
-		#	-> This feedback plays the same role as the 'Odometry' did in the previous task.
-
-		############################################
 
 	def global_error(self):
 
@@ -179,13 +167,13 @@ class controller:
 
 		# Calculating error in body frame		
 		self.shifted_x = self.x_goals[self.index] - self.hola_x
-		self.shifted_y = self.y_goals[self.index] - self.hola_y
+		self.shifted_y = self.hola_y - self.y_goals[self.index] 
 		self.x = self.shifted_x * math.cos(self.hola_theta) + self.shifted_y * math.sin(self.hola_theta)
 		self.y = -self.shifted_x * math.sin(self.hola_theta) + self.shifted_y * math.cos(self.hola_theta)
 
 	def PID(self):
 
-		# Finally implementing a P controller to react to the error with velocities in self.x, self.y and theta
+		# implementing a P controller to react to the error with velocities in self.x, self.y and theta
 		prop_x = self.x
 		prop_y = self.y
 		prop_th = self.error_th
@@ -196,16 +184,27 @@ class controller:
 		# Updating balanced speed
 		self.vel_x = balance_x
 		self.vel_y = balance_y
-		self.vel_z = balance_th		
+		self.vel_z = balance_th	 			
 
-	# def inverse_kinematics():
-		############ ADD YOUR CODE HERE ############
+	def inverse_kinematics(self):
 
-		# INSTRUCTIONS & HELP : 
-		#	-> Use the target velocity you calculated for the robot in previous task, and
-		#	Process it further to find what proportions of that effort should be given to 3 individuals wheels !!
-		#	Publish the calculated efforts to actuate robot by applying force vectors on provided topics
-		############################################
+		# inverse kinematics matrix derived through calculation
+		mat1 = ([0.667, 0, -0.333],
+		   		[-0.333, 0.577, -0.333],
+				[-0.333, -0.577, -0.333])
+
+		# velocity matrix
+		mat2 = ([self.vel_x],
+				[self.vel_y],
+				[self.vel_z])	
+
+		# wheel force matrix
+		res = np.dot(mat1,mat2)
+
+		# assigning force to respective wheels
+		self.vf = float(res[0])
+		self.vl = float(res[1])
+		self.vr = float(res[2])
 
 if __name__ == "__main__":
 	try:

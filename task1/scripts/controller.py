@@ -51,9 +51,9 @@ class controller:
 		self.kp_angular = 4.0
 
 		# desired goal points defined
-		self.x_goals = [1,-1,-1,1,0]
-		self.y_goals = [1,1,-1,-1,0]
-		self.theta_goals = [0.785, 2.335, -2.335, -0.785, 0]
+		self.x_goals = []
+		self.y_goals = []
+		self.theta_goals = []
 
 		# Control Loop goes here
 		while not rospy.is_shutdown():
