@@ -17,8 +17,8 @@
 *****************************************************************************************
 '''
 
-# Team ID:			eYRC#HB#1570
-# Author List:		[Pratik Kumar Sahoo, Romala Mishra]
+# Team ID:			[ eYRC#HB#1570 ]
+# Author List:		[ Pratik , Romala ]
 # Filename:			task_0.py
 # Functions:		[callback(), move()]
 # Nodes:		    Publishing - turtle1/cmd_vel
