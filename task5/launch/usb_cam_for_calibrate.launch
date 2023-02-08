@@ -4,7 +4,7 @@ roslaunch usb_cam_stream_publisher.launch video_device:=/dev/video0 image_width:
 -->
 
 <launch>
-<arg name="video_device" default="/dev/video2" />
+<arg name="video_device" default="/dev/video0" />
 <arg name="image_width" default="640" />
 <arg name="image_height" default="480" />
 <arg name="image_topic_name" default="/usb_cam/image_raw" />
