@@ -49,6 +49,7 @@ class ArucoFeedback():
 
 		# initialising the required variables
 		self.current_frame = None
+		self.final_frame = None
 		self.x = 0.0
 		self.y = 0.0
 		self.angle = 0.0
@@ -60,10 +61,10 @@ class ArucoFeedback():
 		while not rospy.is_shutdown():
 
 			# skipping empty frames
-			if self.current_frame is None: 
+			if self.final_frame is None: 
 				continue
 
-			cv2.imshow('image',self.current_frame)
+			cv2.imshow('image',self.final_frame)
 			
 			
 			# calling function for aruco detection
@@ -80,14 +81,18 @@ class ArucoFeedback():
 
 	def callback(self, data):
 
-		rospy.loginfo("receiving camera frame")
+		# rospy.loginfo("receiving camera frame")
 
 		# Bridge is Used to Convert ROS Image message to OpenCV image
 		br = CvBridge()
 
 		# Receiving raw image in a "grayscale" format and resizing image
-		self.get_frame = br.imgmsg_to_cv2(data, desired_encoding="mono8")  
-		self.current_frame = self.get_frame
+		self.get_frame = br.imgmsg_to_cv2(data, desired_encoding="rgb8")  
+		# self.current_frame = self.get_frame
+		self.current_frame = self.get_frame[150:480, 133:463]
+
+		self.final_frame = cv2.resize(self.current_frame, (500, 500), interpolation = cv2.INTER_LINEAR)
+
 
        
 				
@@ -112,6 +117,11 @@ class ArucoFeedback():
 				bottomLeft = (int(bottomLeft[0]), int(bottomLeft[1]))
 				topLeft = (int(topLeft[0]), int(topLeft[1]))
 
+				cv2.line(self.current_frame, topRight, bottomRight, (0,255,0), 1)
+				cv2.line(self.current_frame, bottomRight, bottomLeft, (0,255,0), 1)
+				cv2.line(self.current_frame, bottomLeft, topLeft, (0,255,0), 1)
+				cv2.line(self.current_frame, topLeft, topRight, (0,255,0), 1)
+
 				# computing the centre of the Aruco marker
 				self.x = int((topLeft[0] + bottomRight[0]) / 2.0)
 				self.y = int((topLeft[1] + bottomRight[1]) / 2.0)
@@ -120,7 +130,10 @@ class ArucoFeedback():
 				(midx, midy) = int((topRight[0] + bottomRight[0]) / 2), int((topRight[1] + bottomRight[1]) / 2)
 				
 				# finding orientation
-				self.angle = math.atan2((self.y - midy),(midx - self.x)) 		
+				self.angle = math.atan2((self.y - midy),(midx - self.x)) 	
+
+				print(self.current_frame.shape)	
+	
 
 if __name__ == '__main__':
 
