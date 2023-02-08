@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 '''
 *****************************************************************************************
@@ -42,7 +42,7 @@ class ArucoFeedback():
 
 		# initialising publisher and subscriber of /detected_aruco and /overhead_cam/image_raw respectively
 		self.aruco_publisher = rospy.Publisher('detected_aruco', Pose2D, queue_size=10)
-		rospy.Subscriber('overhead_cam/image_raw', Image, self.callback)
+		rospy.Subscriber('usb_cam/image_rect', Image, self.callback)
 
 		# declaring a Pose2D message
 		self.aruco_msg = Pose2D()
@@ -62,6 +62,9 @@ class ArucoFeedback():
 			# skipping empty frames
 			if self.current_frame is None: 
 				continue
+
+			cv2.imshow('image',self.current_frame)
+			
 			
 			# calling function for aruco detection
 			self.aruco_detection()
@@ -73,6 +76,8 @@ class ArucoFeedback():
 
 			self.aruco_publisher.publish(self.aruco_msg)
 
+			cv2.waitKey(1)
+
 	def callback(self, data):
 
 		rospy.loginfo("receiving camera frame")
@@ -82,7 +87,9 @@ class ArucoFeedback():
 
 		# Receiving raw image in a "grayscale" format and resizing image
 		self.get_frame = br.imgmsg_to_cv2(data, desired_encoding="mono8")  
-		self.current_frame = cv2.resize(self.get_frame, (500, 500), interpolation = cv2.INTER_LINEAR)
+		self.current_frame = self.get_frame
+
+       
 				
 	def aruco_detection(self):		
 		
