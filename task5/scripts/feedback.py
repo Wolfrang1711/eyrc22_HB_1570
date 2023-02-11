@@ -1,30 +1,7 @@
 #!/usr/bin/env python
 
-'''
-*****************************************************************************************
-*
-*        		===============================================
-*           		    HolA Bot (HB) Theme (eYRC 2022-23)
-*        		===============================================
-*
-*  This script should be used to implement Task 0 of HolA Bot (HB) Theme (eYRC 2022-23).
-*
-*  This software is made available on an "AS IS WHERE IS BASIS".
-*  Licensee/end user indemnifies and will keep e-Yantra indemnified from
-*  any and all claim(s) that emanate from the use of the Software or
-*  breach of the terms of this agreement.
-*
-*****************************************************************************************
-'''
-
 # Team ID:		    [ eYRC#HB#1570 ]
 # Author List:		[ Pratik, Romala ]
-# Filename:	 	    feedback.py
-# Functions:		callback(), aruco_detection()
-# Nodes:			Publishing node: /detected_aruco
-#                   Subscribing node: /overhead_cam/image_raw
-
-######################## IMPORT MODULES ##########################
 
 import numpy				                            # If you find it required
 import rospy 				
@@ -33,6 +10,7 @@ from cv_bridge import CvBridge  				        # Package to convert between ROS and
 import cv2				                                # OpenCV Library
 import math				                                # If you find it required
 from geometry_msgs.msg import Pose2D	                # Required to publish ARUCO's detected position & orientation
+
 class ArucoFeedback():
 
 	def __init__(self):
@@ -49,7 +27,6 @@ class ArucoFeedback():
 
 		# initialising the required variables
 		self.current_frame = None
-		self.final_frame = None
 		self.x = 0.0
 		self.y = 0.0
 		self.angle = 0.0
@@ -61,14 +38,15 @@ class ArucoFeedback():
 		while not rospy.is_shutdown():
 
 			# skipping empty frames
-			if self.final_frame is None: 
+			if self.current_frame is None: 
 				continue
 
-			cv2.imshow('image',self.final_frame)
-			
+			cv2.imshow('image',self.current_frame)
 			
 			# calling function for aruco detection
 			self.aruco_detection()
+
+			print("sending odom", self.x, self.y, self.angle)
 
 			# updating and publishing pose values
 			self.aruco_msg.x = self.x
@@ -88,14 +66,9 @@ class ArucoFeedback():
 
 		# Receiving raw image in a "grayscale" format and resizing image
 		self.get_frame = br.imgmsg_to_cv2(data, desired_encoding="rgb8")  
-		# self.current_frame = self.get_frame
-		self.current_frame = self.get_frame[150:480, 133:463]
+		# self.crop_frame = self.get_frame[40:450, 80:450]
+		self.current_frame = cv2.resize(self.get_frame, (500, 500), interpolation = cv2.INTER_LINEAR)
 
-		self.final_frame = cv2.resize(self.current_frame, (500, 500), interpolation = cv2.INTER_LINEAR)
-
-
-       
-				
 	def aruco_detection(self):		
 		
 		# finding corners and aruco ids
@@ -110,7 +83,7 @@ class ArucoFeedback():
 				# extracting the marker corner (which are always returned in top-left, top-right, bottom-right, and bottom-left order)
 				corner = markerCorner.reshape((4, 2))
 				(topLeft, topRight, bottomRight, bottomLeft) = corner
-
+		
 				# converting each of the (x, y)-coordinate pairs to integers
 				topRight = (int(topRight[0]), int(topRight[1]))
 				bottomRight = (int(bottomRight[0]), int(bottomRight[1]))
@@ -130,10 +103,7 @@ class ArucoFeedback():
 				(midx, midy) = int((topRight[0] + bottomRight[0]) / 2), int((topRight[1] + bottomRight[1]) / 2)
 				
 				# finding orientation
-				self.angle = math.atan2((self.y - midy),(midx - self.x)) 	
-
-				print(self.current_frame.shape)	
-	
+				self.angle = math.atan2((self.y - midy),(midx - self.x)) 
 
 if __name__ == '__main__':
 

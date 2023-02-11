@@ -1,36 +1,12 @@
 #!/usr/bin/env python
 
-'''
-*****************************************************************************************
-*
-*        		===============================================
-*           		    HolA Bot (HB) Theme (eYRC 2022-23)
-*        		===============================================
-*
-*  This script should be used to implement Task 0 of HolA Bot (HB) Theme (eYRC 2022-23).
-*
-*  This software is made available on an "AS IS WHERE IS BASIS".
-*  Licensee/end user indemnifies and will keep e-Yantra indemnified from
-*  any and all claim(s) that emanate from the use of the Software or
-*  breach of the terms of this agreement.
-*
-*****************************************************************************************
-'''
-
 # Team ID:		[ eYRC#HB#1570 ]
 # Author List:	[ Pratik, Romala ]
-# Filename:		controller.py
-# Functions:	task2_goals_Cb(), aruco_feedback_Cb(), global_error(), body_error(), PID(), inverse_kinematics()
-# Nodes:		Publishing nodes: /right_wheel_force, /front_wheel_force, /left_wheel_force
-#    			Subscribing nodes: /detected_aruco, /task2_goals
-
-################### IMPORT MODULES #######################
 
 import rospy
 
-from geometry_msgs.msg import Wrench     	# Message type used for publishing force vectors
-from geometry_msgs.msg import PoseArray		# Message type used for receiving goals
 from geometry_msgs.msg import Pose2D		# Message type used for receiving feedback
+from std_msgs.msg import String
 
 import math		                            # If you find it useful
 import numpy as np
@@ -45,13 +21,10 @@ class controller:
 		rospy.init_node('controller_node')
 
 		# initialising publisher of /right_wheel_force, /front_wheel_force, /left_wheel_force 
-		self.right_wheel_pub = rospy.Publisher('/right_wheel_force', Wrench, queue_size=10)
-		self.front_wheel_pub = rospy.Publisher('/front_wheel_force', Wrench, queue_size=10)
-		self.left_wheel_pub = rospy.Publisher('/left_wheel_force', Wrench, queue_size=10)
+		self.move = rospy.Publisher('velocity_array', String, queue_size=10)
 
 		# initialising subscriber of /detected_aruco and /task2_goals
 		rospy.Subscriber('detected_aruco',Pose2D,self.aruco_feedback_Cb)
-		rospy.Subscriber('task2_goals',PoseArray,self.task2_goals_Cb)
 		
 		# initialising goalpoints array
 		self.x_goals = []
@@ -67,6 +40,7 @@ class controller:
 		self.error_th = 0
 		self.error_d = 0
 		self.index = 0
+		self.velocity = []
 
 		# declaring thresholds
 		self.dist_thresh = 0.05
@@ -77,9 +51,7 @@ class controller:
 		self.kp_angular = 35.0
 
 		# declaring wrench message for 3 wheels 
-		self.vector_f = Wrench()
-		self.vector_r = Wrench()
-		self.vector_l = Wrench()
+		self.data_to_send = String()
 
 		# For maintaining control loop rate.
 		rate = rospy.Rate(100)
@@ -107,13 +79,14 @@ class controller:
 				# Applying appropriate force vectors
 
 					# Stopping
-					self.vector_r.force.x = 0.0
-					self.vector_f.force.x = 0.0
-					self.vector_l.force.x = 0.0
+					self.vr = 0.0
+					self.vf = 0.0
+					self.vl = 0.0
 
-					self.right_wheel_pub.publish(self.vector_r)
-					self.front_wheel_pub.publish(self.vector_f)
-					self.left_wheel_pub.publish(self.vector_l)
+					self.velocity = [self.vr, self.vf, self.vl]
+					self.data_to_send = ','.join([str(e) for e in self.velocity])
+
+					self.move.publish(self.data_to_send)
 					
 					# Stopping for 1 sec
 					rospy.sleep(1)
@@ -123,31 +96,14 @@ class controller:
 
 				else:
 
-					self.vector_r.force.x = self.vr
-					self.vector_f.force.x = self.vf
-					self.vector_l.force.x = self.vl
+					self.velocity = [self.vr, self.vf, self.vl]
+					self.data_to_send = ','.join([str(e) for e in self.velocity])
 
-					self.right_wheel_pub.publish(self.vector_r)
-					self.front_wheel_pub.publish(self.vector_f)
-					self.left_wheel_pub.publish(self.vector_l)
+					self.move.publish(self.data_to_send)
 
+			print(self.velocity)
 			rate.sleep()
 		
-	def task2_goals_Cb(self, msg):
-		
-		self.x_goals.clear()
-		self.y_goals.clear()
-		self.theta_goals.clear()
-
-		for waypoint_pose in msg.poses:
-			self.x_goals.append(waypoint_pose.position.x)
-			self.y_goals.append(waypoint_pose.position.y)
-
-			orientation_q = waypoint_pose.orientation
-			orientation_list = [orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w]
-			theta_goal = euler_from_quaternion (orientation_list)[2]
-			self.theta_goals.append(theta_goal)
-
 	def aruco_feedback_Cb(self, msg):
 
 		# taking the msg and updating the three variables
@@ -188,23 +144,26 @@ class controller:
 
 	def inverse_kinematics(self):
 
+		d = 0.165
+		r = 0.029
+
 		# inverse kinematics matrix derived through calculation
-		mat1 = ([0.667, 0, -0.333],
-		   		[-0.333, 0.577, -0.333],
-				[-0.333, -0.577, -0.333])
+		mat1 = ([-d, 1, 0],
+		   		[-d, -1/2, -math.sqrt(3)/2],
+				[-d, -1/2, math.sqrt(3)/2])
 
 		# velocity matrix
-		mat2 = ([self.vel_x],
-				[self.vel_y],
-				[self.vel_z])	
+		mat2 = ([self.vel_z],
+				[self.vel_x],
+				[self.vel_y])	
 
 		# wheel force matrix
-		res = np.dot(mat1,mat2)
+		res = (1/r) * np.dot(mat1,mat2)
 
 		# assigning force to respective wheels
 		self.vf = float(res[0])
-		self.vl = float(res[1])
-		self.vr = float(res[2])
+		self.vr = float(res[1])
+		self.vl = float(res[2])
 
 if __name__ == "__main__":
 	try:
