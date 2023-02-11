@@ -1,9 +1,13 @@
+// Team ID:    [ eYRC#HB#1570 ]
+// Author List:  [ Pratik ]
+
+#include <WiFi.h>
 #include <WiFiUdp.h>
  
 // Set WiFi credentials
-#define WIFI_SSID "Redmi Note 10S"
-#define WIFI_PASS "12345678901"
-#define UDP_PORT 8002
+#define WIFI_SSID "pratik"
+#define WIFI_PASS "12345678"
+#define UDP_PORT 44444
 
 // UDP
 WiFiUDP UDP;
@@ -25,7 +29,7 @@ void setup()
   // Loop continuously while WiFi is not connected
   while (WiFi.status() != WL_CONNECTED)
   {
-    delay(100);
+    delay(500);
     Serial.print(".");
   }
  
@@ -43,28 +47,29 @@ void setup()
 
 void loop() 
 {
-
+  
   // If packet received...
   int packetSize = UDP.parsePacket();
-  if (packetSize) {
+  if (packetSize) 
+  {
     Serial.print("Received packet! Size: ");
     Serial.println(packetSize); 
+  
     int len = UDP.read(packet, 255);
     if (len > 0)
     {
-      packet[len] = '\0';
+      packet[len] = 0;
     }
     Serial.print("Packet received: ");
     Serial.println(packet);
 
     // Send return packet
-    UDP.beginPacket(UDP.remoteIP(), UDP.remotePort());
-    UDP.write(reply);
-    UDP.endPacket();
+//    UDP.beginPacket(UDP.remoteIP(), UDP.remotePort());
+//    UDP.write("Packet received!");
+//    UDP.endPacket();
 
-    Serial1.println(packet);                       //Send data to AVR
-    Serial1.flush();
-
-  }
+//    Serial1.println(packet);                       //Send data to AVR
+//    Serial1.flush();
+  } 
 
 }
