@@ -21,7 +21,7 @@ class transmitter:
         self.dataToSend = ''
 
         #Enter IP address of laptop after connecting it to WIFI hotspot
-        self.localIP     = "192.168.59.1"
+        self.localIP     = "192.168.126.1"
         self.localPort   = 44444
         self.bufferSize  = 1024
 

@@ -35,9 +35,36 @@ void move_hola(void)
   {   
     
     //Read message on Serial until new char(\n) which indicates end of message. Received data is stored in msg               
-    msg = Serial.readStringUntil('\n');  
+    msg = Serial.readStringUntil('\n'); 
+
+    /* get the first token */
     token = strtok(packet, s);
     
+    /* walk through other tokens */
+    while( token != NULL ) {
+
+      float value = atof(token);
+//      Serial.println(value);
+
+      arr[i]= float(value);
+          
+      token = strtok(NULL, s);
+
+      i+=1; 
+
+      if(i>3)
+      {
+        i=0;
+      }
+      
+    }
+
+    Serial.print("vr: ");
+    Serial.print(arr[0]);
+    Serial.print(" vf: ");
+    Serial.print(arr[1]);
+    Serial.print(" vl: ");
+    Serial.println(arr[2]);
  
     // Setting speed to 3 steppers  
     front_stepper.setSpeed(v_forward);
