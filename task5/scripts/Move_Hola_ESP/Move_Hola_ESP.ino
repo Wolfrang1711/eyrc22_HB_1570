@@ -1,18 +1,32 @@
 // Team ID:    [ eYRC#HB#1570 ]
 // Author List:  [ Pratik ]
 
+#include <AccelStepper.h>
+#include <Ticker.h>
 #include <WiFi.h>
 #include <WiFiUdp.h>
  
 // Set WiFi credentials
-#define WIFI_SSID "pratik"
-#define WIFI_PASS "12345678"
+#define WIFI_SSID "GalaxyA20"
+#define WIFI_PASS "monunitr1"
 #define UDP_PORT 44444
+
+AccelStepper front_stepper(1, 13, 16);
+AccelStepper right_stepper(1, 14, 12);
+AccelStepper left_stepper(1, 26, 25);
+
+Ticker ticker;
 
 // UDP
 WiFiUDP UDP;
 char packet[255];
 char reply[] = "Packet received!";
+const char s[2] = ",";
+char *token;
+int i=0;
+float arr[255];
+
+float v_left, v_forward, v_right;
  
 void setup() 
 {
@@ -42,8 +56,31 @@ void setup()
   UDP.begin(UDP_PORT);
   Serial.print("Listening on UDP port ");
   Serial.println(UDP_PORT);
+
+  // Initializing timer to call the loop after given interval
+  ticker.attach_ms(1, move_hola);
+
+  // Setting max speed for 3 steppers
+  front_stepper.setMaxSpeed(1000.0);
+  left_stepper.setMaxSpeed(1000.0);
+  right_stepper.setMaxSpeed(1000.0);
  
 }
+
+void move_hola(void)
+{
+
+   Serial.println(v_forward);
+   Serial.println(v_left);
+   Serial.println(v_right);
+  
+  // Setting speed to 3 steppers  
+  front_stepper.setSpeed(v_forward);
+  left_stepper.setSpeed(v_left);
+  right_stepper.setSpeed(v_right);
+  
+}
+
 
 void loop() 
 {
@@ -54,19 +91,52 @@ void loop()
   {
     Serial.print("Received packet! Size: ");
     Serial.println(packetSize); 
-  
+    
     int len = UDP.read(packet, 255);
     if (len > 0)
     {
       packet[len] = 0;
     }
     Serial.print("Packet received: ");
-    Serial.println(packet);
+//    Serial.println(packet);    
+   
+    /* get the first token */
+    token = strtok(packet, s);
+    
+    /* walk through other tokens */
+    while( token != NULL ) {
 
-    // Send return packet
-//    UDP.beginPacket(UDP.remoteIP(), UDP.remotePort());
-//    UDP.write("Packet received!");
-//    UDP.endPacket();
+      float value = atof(token);
+//      Serial.println(value);
+
+      arr[i]= float(value);
+          
+      token = strtok(NULL, s);
+
+      i+=1; 
+
+      if(i>3)
+      {
+        i=0;
+      }
+      
+    }
+
+//    Serial.print("vr: ");
+//    Serial.print(arr[0]);
+    v_right = arr[0];
+//    Serial.print(" vf: ");
+//    Serial.print(arr[1]);
+    v_forward = arr[1];
+//    Serial.print(" vl: ");
+//    Serial.println(arr[2]);
+    v_left = arr[2];
+
+     
+    // Running 3 stepper motors
+    front_stepper.runSpeed();
+    left_stepper.runSpeed();
+    right_stepper.runSpeed();
 
 //    Serial1.println(packet);                       //Send data to AVR
 //    Serial1.flush();

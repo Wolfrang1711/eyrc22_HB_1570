@@ -35,8 +35,9 @@ void move_hola(void)
   {   
     
     //Read message on Serial until new char(\n) which indicates end of message. Received data is stored in msg               
-    msg = Serial.readStringUntil('\n');    
-    int x = msg.toInt();
+    msg = Serial.readStringUntil('\n');  
+    token = strtok(packet, s);
+    
  
     // Setting speed to 3 steppers  
     front_stepper.setSpeed(v_forward);
