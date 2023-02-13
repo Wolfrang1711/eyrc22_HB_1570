@@ -7,8 +7,8 @@
 #include <WiFiUdp.h>
  
 // Set WiFi credentials
-#define WIFI_SSID "Redmi Note 10S"
-#define WIFI_PASS "12345678"
+#define WIFI_SSID "GalaxyA20"
+#define WIFI_PASS "monunitr1"
 #define UDP_PORT 44444
 
 AccelStepper front_stepper(1, 13, 16);
@@ -76,7 +76,6 @@ void move_hola(void)
   
 }
 
-
 void loop() 
 {
   
@@ -84,46 +83,34 @@ void loop()
   int packetSize = UDP.parsePacket();
   if (packetSize) 
   {
-//    Serial.print("Received packet! Size: ");
-//    Serial.println(packetSize);/ 
-    
+        
     int len = UDP.read(packet, 255);
     if (len > 0)
     {
       packet[len] = 0;
     }
-//    Serial.print("Packet/ received: ");
-//    Serial.println(packet);    
    
-    /* get the first token */
+    //get the first token 
     token = strtok(packet, s);
     
-    /* walk through other tokens */
-    while( token != NULL ) {
+    //walk through other tokens 
+    while( token != NULL ) 
+    {
 
       float value = atof(token);
-//      Serial.println(value);
-
-      arr[i]= float(value);
-          
+      arr[i++]= float(value);
       token = strtok(NULL, s);
-
-      i+=1; 
-
-      if(i>3)
-      {
-        i=0;
-      }
       
     }
+
+    i = 0;
     
-    v_right = arr[0];
-    v_forward = arr[1];
-    v_left = arr[2];
+    v_forward = arr[0];
+    v_left = arr[1];
+    v_right = arr[2];    
 
   } 
 
-  
     // Running 3 stepper motors
     front_stepper.runSpeed();
     left_stepper.runSpeed();

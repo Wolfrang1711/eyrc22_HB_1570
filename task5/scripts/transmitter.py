@@ -21,16 +21,12 @@ class transmitter:
         self.dataToSend = ''
 
         #Enter IP address of laptop after connecting it to WIFI hotspot
-        self.localIP     = "192.168.126.1"
+        self.localIP     = "192.168.216.1"
         self.localPort   = 44444
         self.bufferSize  = 1024
 
         # Create a datagram socket
         self.UDPServerSocket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
-
-        # Bind to address and ip
-        # self.UDPServerSocket.bind((self.localIP, self.localPort))
-        # print("UDP server up and listening")
 
         while not rospy.is_shutdown():
 

@@ -5,9 +5,8 @@
 
 import rospy
 
-from geometry_msgs.msg import Pose2D		# Message type used for receiving feedback
+from geometry_msgs.msg import Twist		# Message type used for receiving feedback
 from std_msgs.msg import String
-from geometry_msgs.msg import Twist
 
 import math		                            # If you find it useful
 import numpy as np
@@ -44,14 +43,14 @@ class controller:
 			r = 0.029
 
 			# inverse kinematics matrix derived through calculation
-			mat1 = ([-d, 1, 0],
-					[-d, -1/2, -math.sqrt(3)/2],
-					[-d, -1/2, math.sqrt(3)/2])
+			mat1 = ([d, -1, 0],
+					[d, 1/2, math.sqrt(3)/2],
+					[d, 1/2, -math.sqrt(3)/2])
 
 			# velocity matrix
 			mat2 = ([self.vel_z],
-					[self.vel_x],
-					[self.vel_y])	
+					[self.vel_y],
+					[self.vel_x])	
 
 			# wheel force matrix
 			res = (1/r) * np.dot(mat1,mat2)
@@ -61,7 +60,7 @@ class controller:
 			self.vr = float(res[1])
 			self.vl = float(res[2])
 
-			self.velocity = [self.vr, self.vf, self.vl]
+			self.velocity = [self.vf, self.vl, self.vr]
 			self.data_to_send = ','.join([str(e) for e in self.velocity])
 
 			self.move.publish(self.data_to_send)
