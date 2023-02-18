@@ -7,8 +7,8 @@
 #include <WiFiUdp.h>
  
 // Set WiFi credentials
-#define WIFI_SSID "GalaxyA20"
-#define WIFI_PASS "monunitr1"
+#define WIFI_SSID "Pratik"
+#define WIFI_PASS "1234567890"
 #define UDP_PORT 44444
 
 AccelStepper front_stepper(1, 13, 16);
@@ -40,6 +40,7 @@ void setup()
   // Connecting to WiFi...
   Serial.print("Connecting to ");
   Serial.print(WIFI_SSID);
+  
   // Loop continuously while WiFi is not connected
   while (WiFi.status() != WL_CONNECTED)
   {
@@ -58,7 +59,7 @@ void setup()
   Serial.println(UDP_PORT);
 
   // Initializing timer to call the loop after given interval
-  ticker.attach_ms(1, move_hola);
+  ticker.attach_ms(1000, move_hola);
 
   // Setting max speed for 3 steppers
   front_stepper.setMaxSpeed(1000.0);

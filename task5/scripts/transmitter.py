@@ -4,44 +4,48 @@
 # Author List:	[ Pratik ]
 
 import rospy
-from std_msgs.msg import String
-import socket
+from std_msgs.msg import String       # Message type used for receiving feedback
+import socket                         # For UDP communication
 
 class transmitter:
 
     def __init__(self):
         
-        # initialising node named "controller_node"
+        # initialising node named "transmitter_node"
         rospy.init_node('transmitter_node')
 
-        # initialising publisher of /right_wheel_force, /front_wheel_force, /left_wheel_force 
-        rospy.Subscriber('velocity_array', String, self.velocity_feedback)
-
+        # initialising subscriber of /velocity_data
+        rospy.Subscriber('velocity_data', String, self.data_feedback)
+        
+        # initialising required variables
         self.recieved_data = ''
-        self.dataToSend = ''
+        self.data_packet = ''
 
-        #Enter IP address of laptop after connecting it to WIFI hotspot
-        self.localIP     = "192.168.216.1"
-        self.localPort   = 44444
-        self.bufferSize  = 1024
+        # IP address and port of UDP network 
+        self.UDP_IP = "192.168.126.1"
+        self.UDP_port = 44444
 
-        # Create a datagram socket
-        self.UDPServerSocket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
+        # For maintaining control loop rate.
+        rate = rospy.Rate(75)
+
+        # creating a datagram socket for UDP commmunication
+        self.UDP_socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
 
         while not rospy.is_shutdown():
 
-            # Listen for incoming datagrams
-            self.msgFromServer = self.recieved_data
-            self.dataToSend = str.encode(self.msgFromServer)
+            # encoding the recieved data
+            self.data_packet = str.encode(self.recieved_data)
 
-            # Sending a reply to client
-            self.UDPServerSocket.sendto(self.dataToSend, (self.localIP,self.localPort))
-            print("Sending Data ", self.dataToSend)
+            # sending data packets to ESP32 via UDP communication
+            self.UDP_socket.sendto(self.data_packet, (self.UDP_IP,self.UDP_port))
+            print("Sending Data: ", self.data_packet)
 
+            rate.sleep()
 
-    def velocity_feedback(self, msg):
+    # callback to recieve and update the variable to send data
+    def data_feedback(self, msg):
 
-        # taking the msg and updating the three variables
+        # taking the msg and updating the vaariable
         self.recieved_data = msg.data  
 
 if __name__ == "__main__":
