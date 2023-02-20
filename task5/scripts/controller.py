@@ -5,10 +5,10 @@
 
 import rospy
 
-from geometry_msgs.msg import Pose2D		# Message type used for receiving feedback
-from std_msgs.msg import String
+from geometry_msgs.msg import Pose2D		# Message type used for receiving aruco feedback
+from std_msgs.msg import String				# Message type used for send velocity data
 
-import math		                            # If you find it useful
+import math		                          
 import numpy as np
 
 from tf.transformations import euler_from_quaternion	# Convert angles
@@ -20,10 +20,10 @@ class controller:
 		# initialising node named "controller_node"
 		rospy.init_node('controller_node')
 
-		# initialising publisher of /right_wheel_force, /front_wheel_force, /left_wheel_force 
+		# initialising publisher to send velocity data
 		self.move = rospy.Publisher('velocity_data', String, queue_size=10)
 
-		# initialising subscriber of /detected_aruco and /task2_goals
+		# initialising subscriber of detected_aruco
 		rospy.Subscriber('detected_aruco',Pose2D,self.aruco_feedback_Cb)
 		
 		# initialising goalpoints array
@@ -40,24 +40,28 @@ class controller:
 		self.error_th = 0
 		self.error_d = 0
 		self.index = 0
+		self.max_value = 0
 		self.velocity = []
+		self.normalize = []
 
 		# declaring thresholds
-		self.dist_thresh = 1
-		self.angle_thresh = 0.1 * (math.pi/180)
+		self.dist_thresh = 2
+		self.angle_thresh = 1 * (math.pi/180)
 
-		# Initialising Kp values for the P Controller
+		# initialising PID variables
 		self.last_error = 0
 		self.intg = 0
 		self.diff = 0
 		self.prop = 0
-		self.kpl = 0.004
-		self.kpa = 0.45
+
+		# initialising PID contsants
+		self.kp_linear = 0.04
+		self.kp_angular = 3.0
 		self.ki = 0
 		self.kd = 0
 
-		# declaring wrench message for 3 wheels 
-		self.data_to_send = String()
+		# declaring data string 
+		self.sending_data = String()
 
 		# For maintaining control loop rate.
 		rate = rospy.Rate(75)
@@ -65,54 +69,66 @@ class controller:
 		# control loop
 		while not rospy.is_shutdown():
 
-			while self.index < len(self.theta_goals):
+			# loop till all goals are reached
+			if self.index < len(self.theta_goals):
 
-				# Calculating Global Error from feedback
+				# calculating Global Error from feedback
 				self.global_error()
 
-				# Changing to robot frame by using Rotation Matrix 
-				self.body_error()
-
-				# Calculating the required velocity of bot 
-				self.balance()
-				
-				# Finding the required force vectors for individual wheels from it
-				self.inverse_kinematics()
-
-				# Moving and Orienting till goal is reached
-				if(self.error_d < self.dist_thresh and abs(self.error_th) < self.angle_thresh):	
-				# Applying appropriate force vectors
+				# loop for moving and orienting till goal is reached
+				if(self.error_d < self.dist_thresh and abs(self.error_th) < self.angle_thresh):
 
 					# Stopping
 					self.vr = 0.0
 					self.vf = 0.0
 					self.vl = 0.0
 
-					self.velocity = [round(self.vf,3), round(self.vl,3), round(self.vr,3)]
-					self.data_to_send = ','.join([str(e) for e in self.velocity])
-
-					self.move.publish(self.data_to_send)
-
-					# print(self.data_to_send)
+					# generating velocity list for 3 wheels and converting to string
+					self.velocity = [self.vf, self.vl, self.vr]
+					self.sending_data = ','.join([str(e) for e in self.velocity])
 					
-					print("Reached goal ", self.index + 1)
+					# publishing data to velocity_data topic
+					self.move.publish(self.sending_data)
+					
+					print("Reached goal: ", self.x_goals[self.index], self.y_goals[self.index], self.theta_goals[self.index])
 
-					# Stopping for 1 sec
-					rospy.sleep(1)
+					# Stopping for 2 sec
+					rospy.sleep(2)
+					
+					print("Moving to next goal: ", self.x_goals[self.index+1], self.y_goals[self.index+1], self.theta_goals[self.index+1])
 
 					# Updating goals				
 					self.index += 1
 
 				else:
 
-					self.velocity = [round(self.vf,3), round(self.vl,3), round(self.vr,3)]
-					self.data_to_send = ','.join([str(e) for e in self.velocity])
+					# changing to robot frame by using Rotation Matrix 
+					self.body_error()
 
-					self.move.publish(self.data_to_send)
+					# calculating the required velocity of bot 
+					self.balance_speed()
+					
+					# finding the required force vectors for individual wheels from it
+					self.inverse_kinematics()
 
-					# print(self.data_to_send)
+					# generating velocity list for 3 wheels 
+					self.velocity = [self.vf, self.vl, self.vr]
+
+					# clipping wheel velocity to a certain optimum limit
+					self.clipper()
+
+					# converting velocity list to string
+					self.sending_data = ','.join([str(e) for e in self.velocity])
+
+					# publishing data to velocity_data topic
+					self.move.publish(self.sending_data)
 
 				rate.sleep()
+
+			else:
+
+				print("All goals reached !!!")	
+				exit()
 		
 	def aruco_feedback_Cb(self, msg):
 
@@ -137,12 +153,41 @@ class controller:
 		self.x = self.shifted_x * math.cos(self.hola_theta) + self.shifted_y * math.sin(self.hola_theta)
 		self.y = -self.shifted_x * math.sin(self.hola_theta) + self.shifted_y * math.cos(self.hola_theta)
 	
-	def balance(self):
+	def clipper(self):
+		
+		# clipping range
+		clip = 700
 
-		# Updating balanced speed
-		self.vel_x = self.PID(self.x, self.kpl)
-		self.vel_y = self.PID(self.y, self.kpl)
-		self.vel_z = self.PID(self.error_th, self.kpa)
+		# loop if velocity exceeds the range
+		if (self.vf>clip or self.vl>clip or self.vr>clip):
+
+			# initializing a list to store normalized values
+			self.normalize = self.velocity
+
+			# finding max value in list
+			self.max_value = max(self.normalize) 
+
+			# normalizing the list
+			for i, val in enumerate(self.normalize):
+					self.normalize[i] = val/self.max_value
+
+			# remapping the normalised velocities with proper clipping ratio
+			self.velocity = [x * clip for x in self.normalize]	
+			self.velocity = [int(y) for y in self.velocity]
+
+		
+	def balance_speed(self):
+
+		# Updating balanced speeds
+		self.vel_x = self.PID(self.x, self.kp_linear)
+		self.vel_y = self.PID(self.y, self.kp_linear)
+
+		if (self.error_th > 3.14):
+			self.vel_z = self.PID((self.error_th-6.28), self.kp_angular)
+		elif (self.error_th < -3.14):
+			self.vel_z = self.PID((self.error_th+6.28), self.kp_angular)
+		else:
+			self.vel_z = self.PID((self.error_th), self.kp_angular)
 
 	def PID(self, error, kp):
 
@@ -155,7 +200,8 @@ class controller:
 		return balance   	     
 			
 	def inverse_kinematics(self):
-
+		
+		# chassis radius and wheel radius respectively
 		d = 0.165
 		r = 0.029
 
@@ -170,12 +216,15 @@ class controller:
 				[self.vel_y])	
 
 		# wheel force matrix
-		res = (100/math.pi) * (1/r) * np.dot(mat1,mat2)
+		res = (1/r) * np.dot(mat1,mat2)
+
+		# converting output values to steps per second 
+		res = (100/math.pi) * res
 
 		# assigning force to respective wheels
-		self.vf = float(res[0])
-		self.vr = float(res[1])
-		self.vl = float(res[2])
+		self.vf = int(res[0])
+		self.vr = int(res[1])
+		self.vl = int(res[2])
 
 if __name__ == "__main__":
 	try:

@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
 # Team ID:		    [ eYRC#HB#1570 ]
-# Author List:		[ Pratik, Romala ]
+# Author List:		[ Romala ]
 
-import numpy				                            # If you find it required
+import numpy as np				                            # If you find it required
 import rospy 				
 from sensor_msgs.msg import Image 	                    # Image is the message type for images in ROS
 from cv_bridge import CvBridge  				        # Package to convert between ROS and OpenCV Images
@@ -26,8 +26,6 @@ class ArucoFeedback():
 		self.aruco_msg = Pose2D()
 
 		# initialising the required variables
-		self.current_frame = None
-		self.zoom = None
 		self.final_frame = None
 		self.x = 0.0
 		self.y = 0.0
@@ -48,12 +46,12 @@ class ArucoFeedback():
 			# calling function for aruco detection
 			self.aruco_detection()
 
-			print("sending odom: ", self.x, self.y, self.angle)
-
 			# updating and publishing pose values
 			self.aruco_msg.x = self.x
 			self.aruco_msg.y = self.y 
 			self.aruco_msg.theta = self.angle
+
+			rospy.loginfo("Publishing Odometry")
 
 			self.aruco_publisher.publish(self.aruco_msg)
 
@@ -64,16 +62,23 @@ class ArucoFeedback():
 		# Bridge is Used to Convert ROS Image message to OpenCV image
 		br = CvBridge()
 
-		# Receiving raw image in a "grayscale" format and resizing image
+		# Receiving raw image in a "grayscale" format
 		self.get_frame = br.imgmsg_to_cv2(data, desired_encoding="rgb8")
 
-		cy, cx = [ i/2 for i in self.get_frame.shape[:-1] ] 
-    
-		rot_mat = cv2.getRotationMatrix2D((cx,cy), 0, 1.5)
-		self.zoom = cv2.warpAffine(self.get_frame, rot_mat, self.get_frame.shape[1::-1], flags=cv2.INTER_LINEAR)
+		# defining four corner points for perspective transform
+		pts1 = np.float32([[98, 88], [397, 86],
+                       [98, 424], [395, 430]])
+		pts2 = np.float32([[0, 0], [500, 0],
+						[0, 500], [500, 500]])
+		
+		# Apply Perspective Transform Algorithm
+		matrix = cv2.getPerspectiveTransform(pts1, pts2)
+		self.final_frame = cv2.warpPerspective(self.get_frame, matrix, (500, 500))
 
-		self.current_frame = cv2.resize(self.zoom, (720, 500), interpolation = cv2.INTER_LINEAR)
-		self.final_frame = self.current_frame[0:500,0:500]
+		# to show the current position and orientation of the bot on the frame
+		cv2.putText(img = self.final_frame, text = str(self.x), org = (130, 24), fontFace = cv2.FONT_HERSHEY_DUPLEX, fontScale = 0.8, color = (0, 0, 0), thickness = 2)
+		cv2.putText(img = self.final_frame, text = str(self.y), org = (200, 24), fontFace = cv2.FONT_HERSHEY_DUPLEX, fontScale = 0.8, color = (0, 0, 0), thickness = 2)
+		cv2.putText(img = self.final_frame, text = str(round(self.angle,3)), org = (270, 24), fontFace = cv2.FONT_HERSHEY_DUPLEX, fontScale = 0.8, color = (0, 0, 0), thickness = 2)										
 
 	def aruco_detection(self):		
 		
@@ -107,9 +112,6 @@ class ArucoFeedback():
 					# finding orientation
 					self.angle = math.atan2((self.y - midy),(midx - self.x)) 
 					
-					cv2.putText(img = self.final_frame, text = str(self.x), org = (10, 24), fontFace = cv2.FONT_HERSHEY_DUPLEX, fontScale = 0.8, color = (255, 255, 255), thickness = 2)
-					cv2.putText(img = self.final_frame, text = str(self.y), org = (90, 24), fontFace = cv2.FONT_HERSHEY_DUPLEX, fontScale = 0.8, color = (255, 255, 255), thickness = 2)
-					cv2.putText(img = self.final_frame, text = str(round(self.angle,3)), org = (10, 60), fontFace = cv2.FONT_HERSHEY_DUPLEX, fontScale = 0.8, color = (255, 255, 255), thickness = 2)										
 
 if __name__ == '__main__':
 

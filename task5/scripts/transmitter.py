@@ -14,7 +14,7 @@ class transmitter:
         # initialising node named "transmitter_node"
         rospy.init_node('transmitter_node')
 
-        # initialising subscriber of /velocity_data
+        # initialising subscriber of velocity_data
         rospy.Subscriber('velocity_data', String, self.data_feedback)
         
         # initialising required variables
@@ -22,7 +22,7 @@ class transmitter:
         self.data_packet = ''
 
         # IP address and port of UDP network 
-        self.UDP_IP = "192.168.126.1"
+        self.UDP_IP = "192.168.244.1"
         self.UDP_port = 44444
 
         # For maintaining control loop rate.
@@ -31,6 +31,7 @@ class transmitter:
         # creating a datagram socket for UDP commmunication
         self.UDP_socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
 
+        # control loop
         while not rospy.is_shutdown():
 
             # encoding the recieved data

@@ -6,62 +6,64 @@
 #include <WiFi.h>
 #include <WiFiUdp.h>
  
-// Set WiFi credentials
-#define WIFI_SSID "Pratik"
-#define WIFI_PASS "1234567890"
-#define UDP_PORT 44444
+// set WiFi credentials
+#define WiFi_SSID "Pratik"
+#define WiFi_Password "1234567890"
+#define UDP_Port 44444
 
+// declaring motors step and direction pins
 AccelStepper front_stepper(1, 13, 16);
 AccelStepper right_stepper(1, 12,14);
 AccelStepper left_stepper(1, 25, 26);
 
-Ticker ticker;
+// initializing ticker 
+Ticker interrupt;
 
-// UDP
-WiFiUDP UDP;
+// intiliazing UDP
+WiFiUDP udp;
+
+// initializing variables
 char packet[255];
-char reply[] = "Packet received!";
 const char s[2] = ",";
-char *token;
+char *fragment;
 int i=0;
-float arr[255];
-
-float v_left, v_forward, v_right;
+int velocity_array[255];
+int v_left, v_forward, v_right;
  
 void setup() 
 {
-  // Setup serial port
+  // setup serial port
   Serial.begin(115200);
   Serial.println();
  
-  // Begin WiFi
-  WiFi.begin(WIFI_SSID, WIFI_PASS);
+  // begin WiFi
+  WiFi.begin(WiFi_SSID, WiFi_Password);
  
-  // Connecting to WiFi...
+  // connecting to WiFi
   Serial.print("Connecting to ");
-  Serial.print(WIFI_SSID);
+  Serial.print(WiFi_SSID);
   
-  // Loop continuously while WiFi is not connected
+  // loop continuously while WiFi is not connected
   while (WiFi.status() != WL_CONNECTED)
   {
     delay(500);
     Serial.print(".");
   }
  
-  // Connected to WiFi
+  // connected to WiFi
   Serial.println();
   Serial.print("Connected! IP address: ");
   Serial.println(WiFi.localIP());
 
-  // Begin listening to UDP port
-  UDP.begin(UDP_PORT);
+  // begin listening to UDP port
+  udp.begin(UDP_Port);
   Serial.print("Listening on UDP port ");
-  Serial.println(UDP_PORT);
+  Serial.println(UDP_Port);
 
-  // Initializing timer to call the loop after given interval
-  ticker.attach_ms(1000, move_hola);
+  // initializing interrupt to call the loop after given interval
+  interrupt.attach_ms(1, move_hola);
 
-  // Setting max speed for 3 steppers
+  // setting max speed for 3 steppers
   front_stepper.setMaxSpeed(1000.0);
   left_stepper.setMaxSpeed(1000.0);
   right_stepper.setMaxSpeed(1000.0);
@@ -70,7 +72,7 @@ void setup()
 
 void move_hola(void)
 {
-  // Setting speed to 3 steppers  
+  // setting speed to 3 steppers  
   front_stepper.setSpeed(v_forward);
   left_stepper.setSpeed(v_left);
   right_stepper.setSpeed(v_right);
@@ -80,41 +82,43 @@ void move_hola(void)
 void loop() 
 {
   
-  // If packet received...
-  int packetSize = UDP.parsePacket();
-  if (packetSize) 
+  // running 3 stepper motors
+  front_stepper.runSpeed();
+  left_stepper.runSpeed();
+  right_stepper.runSpeed();
+  
+  // If packet received
+  int packet_size = udp.parsePacket();
+  if (packet_size) 
   {
-        
-    int len = UDP.read(packet, 255);
-    if (len > 0)
+    // read packet and store it
+    int packet_length = udp.read(packet, 255);
+    if (packet_length > 0)
     {
-      packet[len] = 0;
+      packet[packet_length] = 0;
     }
    
-    //get the first token 
-    token = strtok(packet, s);
+    // get the first fragment 
+    fragment = strtok(packet, s);
     
-    //walk through other tokens 
-    while( token != NULL ) 
+    //walk through other fragments 
+    while( fragment != NULL ) 
     {
-
-      float value = atof(token);
-      arr[i++]= float(value);
-      token = strtok(NULL, s);
+      // convert the fragment into integer and store them in an velocity_arrayay
+      int value = atoi(fragment);
+      velocity_array[i++]= int(value);
+      fragment = strtok(NULL, s);
       
     }
 
-    i = 0;
+    // assign velocity_arrayay values to respective wheel velocity
+    v_forward = velocity_array[0];
+    v_left = velocity_array[1];
+    v_right = velocity_array[2];    
+
+    // resetting loop
+    i = 0;    
     
-    v_forward = arr[0];
-    v_left = arr[1];
-    v_right = arr[2];    
-
   } 
-
-    // Running 3 stepper motors
-    front_stepper.runSpeed();
-    left_stepper.runSpeed();
-    right_stepper.runSpeed();
 
 }

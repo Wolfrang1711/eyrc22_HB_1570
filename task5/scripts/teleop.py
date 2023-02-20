@@ -34,7 +34,7 @@ class controller:
 		self.data_to_send = String()
 
 		# For maintaining control loop rate.
-		rate = rospy.Rate(75)
+		self.rate = rospy.Rate(75)
 		
 		# control loop
 		while not rospy.is_shutdown():
@@ -56,18 +56,18 @@ class controller:
 			res = (100/math.pi) * (1/r) * np.dot(mat1,mat2)
 
 			# assigning force to respective wheels
-			self.vf = float(res[0])
-			self.vr = float(res[1])
-			self.vl = float(res[2])
+			self.vf = int(res[0])
+			self.vr = int(res[1])
+			self.vl = int(res[2])
  
-			self.velocity = [round(self.vf,3), round(self.vl,3), round(self.vr,3)]
+			self.velocity = [self.vf, self.vl, self.vr]
 			self.data_to_send = ','.join([str(e) for e in self.velocity])
 
 			self.move.publish(self.data_to_send)
 
 			print(self.data_to_send)
 
-			rate.sleep()
+			self.rate.sleep()	
 		
 	def velocity_feedback(self, msg):
 
