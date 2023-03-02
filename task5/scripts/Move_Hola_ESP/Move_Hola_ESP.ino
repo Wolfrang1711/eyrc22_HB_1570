@@ -14,7 +14,7 @@
 // declaring motors step and direction pins
 AccelStepper front_stepper(1, 13, 16);
 AccelStepper right_stepper(1, 12,14);
-AccelStepper left_stepper(1, 25, 26);
+AccelStepper left_stepper(1, 26, 25);
 
 // initializing ticker 
 Ticker interrupt;

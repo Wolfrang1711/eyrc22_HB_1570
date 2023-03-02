@@ -39,7 +39,7 @@ class controller:
 		# control loop
 		while not rospy.is_shutdown():
 
-			d = 0.165
+			d = 0.175
 			r = 0.029
 
 			# inverse kinematics matrix derived through calculation

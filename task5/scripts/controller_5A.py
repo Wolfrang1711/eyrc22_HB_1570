@@ -4,7 +4,6 @@
 # Author List:	[ Pratik, Romala ]
 
 import rospy
-import cv2
 
 from geometry_msgs.msg import Pose2D		# Message type used for receiving aruco feedback
 from std_msgs.msg import String				# Message type used for send velocity data
@@ -13,8 +12,6 @@ import math
 import numpy as np
 
 from tf.transformations import euler_from_quaternion	# Convert angles
-
-from feedback import ArucoFeedback
 
 class controller:
 
@@ -30,9 +27,9 @@ class controller:
 		rospy.Subscriber('detected_aruco',Pose2D,self.aruco_feedback_Cb)
 		
 		# initialising goalpoints array
-		self.x_goals = []
-		self.y_goals = []
-		self.theta_goals = []		                                                                                                                                                                                                                                                                                                           
+		self.x_goals = [250,350,150,150,350,250]
+		self.y_goals = [250,300,350,150,150,250]
+		self.theta_goals = [0,0.785,2.355,-2.355,-0.785,0]		                                                                                                                                                                                                                                                                                                           
 
 		# initialising required variables
 		self.hola_x = 0.0
@@ -45,10 +42,11 @@ class controller:
 		self.index = 0
 		self.max_value = 0
 		self.velocity = []
+		self.normalize = []
 
 		# declaring thresholds
 		self.dist_thresh = 2
-		self.angle_thresh = 2 * (math.pi/180)
+		self.angle_thresh = 1 * (math.pi/180)
 
 		# initialising PID variables
 		self.last_error = 0
@@ -57,8 +55,8 @@ class controller:
 		self.prop = 0
 
 		# initialising PID contsants
-		self.kp_linear = 0.05
-		self.kp_angular = 3.5
+		self.kp_linear = 0.04
+		self.kp_angular = 3.0
 		self.ki = 0
 		self.kd = 0
 
@@ -67,8 +65,6 @@ class controller:
 
 		# For maintaining control loop rate.
 		rate = rospy.Rate(75)
-
-		self.function_waypoints()
 		
 		# control loop
 		while not rospy.is_shutdown():
@@ -89,18 +85,17 @@ class controller:
 
 					# generating velocity list for 3 wheels and converting to string
 					self.velocity = [self.vf, self.vl, self.vr]
-
-					# converting velocity list to string
 					self.sending_data = ','.join([str(e) for e in self.velocity])
 					
 					# publishing data to velocity_data topic
 					self.move.publish(self.sending_data)
-
-					print("Goal: ", self.x_goals[self.index], self.y_goals[self.index], self.theta_goals[self.index])
-
-					# self.path.append((self.x_goals[self.index], self.y_goals[self.index]))
 					
-					print("Reached goal ", self.index)
+					print("Reached goal: ", self.x_goals[self.index], self.y_goals[self.index], self.theta_goals[self.index])
+
+					# Stopping for 2 sec
+					rospy.sleep(2)
+					
+					print("Moving to next goal: ", self.x_goals[self.index+1], self.y_goals[self.index+1], self.theta_goals[self.index+1])
 
 					# Updating goals				
 					self.index += 1
@@ -112,8 +107,8 @@ class controller:
 
 					# calculating the required velocity of bot 
 					self.balance_speed()
-						
-				# finding the required force vectors for individual wheels from it
+					
+					# finding the required force vectors for individual wheels from it
 					self.inverse_kinematics()
 
 					# generating velocity list for 3 wheels 
@@ -133,42 +128,11 @@ class controller:
 			else:
 
 				print("All goals reached !!!")	
-
-				# print(self.path)
-
-				# print("Visualizing Path")
-				# ArucoFeedback.visualize(self.path)
-
 				exit()
 		
-	def function_waypoints(self):
-
-		self.x_goals.clear()
-		self.y_goals.clear()
-		self.theta_goals.clear()
-
-		N = 500
-		scale = 1.5
-
-		for i in range(N):
-
-			t =  i*((2*math.pi)/N)
-
-			# defining eqn
-			x_eqn = 250*math.cos(t) 
-			y_eqn = 125*math.sin(2*t)
-			theta_eqn = (math.pi/4)*math.sin(t)
-
-			x_eqn = x_eqn/scale + 250
-			y_eqn = 250 - y_eqn/scale
-
-			self.x_goals.append(int(x_eqn))
-			self.y_goals.append(int(y_eqn))
-			self.theta_goals.append(round(theta_eqn,3))   
-					
 	def aruco_feedback_Cb(self, msg):
 
-        # taking the msg and updating the three variables
+		# taking the msg and updating the three variables
 		self.hola_x = msg.x
 		self.hola_y = msg.y
 		self.hola_theta = msg.theta
@@ -180,7 +144,7 @@ class controller:
 		self.error_y = self.y_goals[self.index] - self.hola_y
 		self.error_th = self.theta_goals[self.index] - self.hola_theta
 		self.error_d = np.linalg.norm(np.array((self.error_x, self.error_y)) - np.array((0,0)))
-
+	
 	def body_error(self):
 
 		# Calculating error in body frame		
@@ -188,25 +152,29 @@ class controller:
 		self.shifted_y = self.hola_y - self.y_goals[self.index] 
 		self.x = self.shifted_x * math.cos(self.hola_theta) + self.shifted_y * math.sin(self.hola_theta)
 		self.y = -self.shifted_x * math.sin(self.hola_theta) + self.shifted_y * math.cos(self.hola_theta)
-
+	
 	def clipper(self):
 		
 		# clipping range
-		clip = 500
+		clip = 700
 
 		# loop if velocity exceeds the range
 		if (self.vf>clip or self.vl>clip or self.vr>clip):
 
+			# initializing a list to store normalized values
+			self.normalize = self.velocity
+
 			# finding max value in list
-			self.max_value = max(self.velocity) 
+			self.max_value = max(self.normalize) 
 
 			# normalizing the list
-			for i, val in enumerate(self.velocity):
-					self.velocity[i] = val/self.max_value
+			for i, val in enumerate(self.normalize):
+					self.normalize[i] = val/self.max_value
 
 			# remapping the normalised velocities with proper clipping ratio
-			self.velocity = [int(x * clip) for x in self.velocity]	
-		
+			self.velocity = [x * clip for x in self.normalize]	
+			self.velocity = [int(y) for y in self.velocity]
+
 	def balance_speed(self):
 
 		# Updating balanced speeds
@@ -222,7 +190,7 @@ class controller:
 
 	def PID(self, error, kp):
 
-		# implementing the PID controller to the error  
+        # implementing the PID controller to the error  
 		self.prop = error
 		self.intg = error + self.intg
 		self.diff = error - self.last_error
@@ -256,6 +224,8 @@ class controller:
 		self.vf = int(res[0])
 		self.vr = int(res[1])
 		self.vl = int(res[2])
+
+		
 
 if __name__ == "__main__":
 	try:

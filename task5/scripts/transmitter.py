@@ -22,7 +22,7 @@ class transmitter:
         self.data_packet = ''
 
         # IP address and port of UDP network 
-        self.UDP_IP = "192.168.244.1"
+        self.UDP_IP = "192.168.171.1"
         self.UDP_port = 44444
 
         # For maintaining control loop rate.
