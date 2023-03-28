@@ -84,9 +84,7 @@ class ArucoFeedback():
 		
 		# finding corners and aruco ids
 		corner, ids, _ = cv2.aruco.detectMarkers(self.final_frame, self.arucoDict, parameters = self.arucoParams)	
-
 		if len(corner) > 0:
-
 			# flatten the Aruco IDs list
 			ids = ids.flatten()
 
@@ -113,13 +111,7 @@ class ArucoFeedback():
 					
 					# finding orientation
 					self.angle = math.atan2((self.y - midy),(midx - self.x)) 
-
-	# def visualize(self, points):
-
-	# 	points = np.array(points, dtype='int32')
-
-	# 	points = points.reshape((-1, 1, 2))
-	# 	self.final_frame = cv2.polylines(self.final_frame, [points], isClosed=True, color = (0, 0, 0), thickness = 2)
+					
 
 if __name__ == '__main__':
 

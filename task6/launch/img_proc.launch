@@ -1,0 +1,7 @@
+<launch>
+<arg name="name_space" default="usb_cam" />
+<!-- this line is for: ROS_NAMESPACE=usb_cam rosrun image_proc image_proc -->
+<node name="image_proc" pkg="image_proc" type="image_proc" ns="$(arg name_space)"/>
+
+
+</launch>
