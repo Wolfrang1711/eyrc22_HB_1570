@@ -4,12 +4,11 @@ roslaunch usb_cam_stream_publisher.launch video_device:=/dev/video0 image_width:
 -->
 
 <launch>
-<arg name="video_device" default="/dev/video2" />
+<arg name="video_device" default="/dev/video0" />
 <arg name="image_width" default="640" />
 <arg name="image_height" default="480" />
 <arg name="image_topic_name" default="/usb_cam/image_raw" />
 <arg name="camera_info_topic_name" default="/usb_cam/camera_info" />
-
 
 <node name="usb_cam" pkg="usb_cam" type="usb_cam_node" output="screen" >
 <param name="video_device" value="$(arg video_device)" />
@@ -25,4 +24,5 @@ roslaunch usb_cam_stream_publisher.launch video_device:=/dev/video0 image_width:
 <remap from="/usb_cam/camera_info" to="$(arg camera_info_topic_name)"/>
 <remap from="/usb_cam/image_raw" to="$(arg image_topic_name)"/>
 </node>
+
 </launch>

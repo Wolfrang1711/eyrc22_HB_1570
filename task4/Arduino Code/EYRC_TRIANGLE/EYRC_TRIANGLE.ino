@@ -1,3 +1,6 @@
+// Team ID:    [ eYRC#HB#1570 ]
+// Author List:  [ Romala, Monalisa ]
+
 // Declaring libraries
 #include <AccelStepper.h>
 #include <TimerOne.h>
